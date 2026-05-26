@@ -1,4 +1,4 @@
-import certifi_win32
+# import certifi_win32
 import logging
 import os
 
