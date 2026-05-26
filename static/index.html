@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Clinic CRM Assistant</title>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef3fb;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app { display: flex; height: 100vh; }
+
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, #1f2d86 0%, #13205e 100%);
+            color: white;
+            padding: 24px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .logo-wrapper {
+            background: white;
+            border-radius: 22px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 88px;
+        }
+
+        .logo-wrapper img {
+            max-width: 170px;
+            max-height: 58px;
+            object-fit: contain;
+        }
+
+        .menu-title {
+            font-size: 13px;
+            opacity: 0.75;
+            padding-right: 8px;
+        }
+
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .menu-card {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 22px;
+            padding: 24px 20px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .menu-card:hover {
+            background: rgba(255,255,255,0.14);
+            transform: translateY(-2px);
+        }
+
+        .menu-card h3 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+
+        .menu-card p {
+            font-size: 14px;
+            opacity: 0.74;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            background: rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.92;
+        }
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .topbar {
+            background: white;
+            padding: 28px 42px;
+            border-bottom: 1px solid #dfe6f0;
+        }
+
+        .topbar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .topbar-header h1 {
+            font-size: 44px;
+            color: #1b2b7f;
+        }
+
+        .wave { font-size: 34px; }
+
+        .topbar p {
+            color: #5c637a;
+            font-size: 18px;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 24px;
+            background: #f5f7fc;
+            border-bottom: 1px solid #e1e7f1;
+        }
+
+        .status-pill {
+            background: #dcf7e8;
+            color: #18864b;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .state-indicator {
+            color: #5f6880;
+            font-size: 14px;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 34px;
+        }
+
+        .chat {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .message {
+            max-width: 72%;
+            padding: 18px 22px;
+            border-radius: 22px;
+            line-height: 1.8;
+            font-size: 17px;
+            white-space: pre-wrap;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+        }
+
+        .user {
+            align-self: flex-start;
+            background: linear-gradient(135deg, #4f86ff, #2e67f0);
+            color: white;
+            border-bottom-left-radius: 6px;
+        }
+
+        .bot {
+            align-self: flex-end;
+            background: white;
+            color: #1f2940;
+            border-bottom-right-radius: 6px;
+        }
+
+        .typing {
+            align-self: flex-end;
+            background: white;
+            color: #6b7280;
+            padding: 14px 18px;
+            border-radius: 22px;
+            font-size: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+        }
+
+        .actions {
+            align-self: flex-end;
+            max-width: 76%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: -6px;
+            margin-bottom: 4px;
+        }
+
+        .action-btn {
+            border: 1px solid #c9d7ff;
+            background: #edf3ff;
+            color: #214fc2;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #dfe9ff;
+            transform: translateY(-1px);
+        }
+
+        .appointment-card-btn {
+            border: 1px solid #d9e3f7;
+            background: white;
+            color: #1f2940;
+            border-radius: 18px;
+            padding: 14px 18px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+        }
+
+        .appointment-card-btn:hover {
+            border-color: #4f86ff;
+            transform: translateY(-2px);
+        }
+
+        .input-wrapper {
+            background: white;
+            border-top: 1px solid #dce3ef;
+            padding: 22px 28px;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .input-container input {
+            flex: 1;
+            border: 2px solid #cdd7ea;
+            border-radius: 20px;
+            padding: 18px 22px;
+            font-size: 17px;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        .input-container input:focus { border-color: #3e74f7; }
+
+        .send-btn {
+            width: 70px;
+            height: 70px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #4d84ff, #2966f0);
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .send-btn:hover { transform: scale(1.05); }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .examples {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .example-chip {
+            background: #edf3ff;
+            color: #2753c7;
+            border-radius: 999px;
+            padding: 10px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .example-chip:hover { background: #dfe9ff; }
+
+        .debug-panel {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 390px;
+            max-height: 520px;
+            overflow: auto;
+            background: #111827;
+            color: #d1d5db;
+            border-radius: 18px;
+            padding: 16px;
+            font-size: 13px;
+            direction: ltr;
+            z-index: 999;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+        }
+
+        .debug-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .debug-header h4 {
+            margin: 0;
+            color: white;
+        }
+
+        .debug-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .debug-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            background: rgba(255,255,255,0.08);
+            color: #d1d5db;
+            transition: 0.2s;
+        }
+
+        .debug-btn:hover { background: rgba(255,255,255,0.18); }
+
+        .debug-panel pre {
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .debug-section-title {
+            margin-top: 14px;
+            margin-bottom: 8px;
+            color: #93c5fd;
+            font-weight: bold;
+        }
+
+        .debug-log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            direction: ltr;
+        }
+
+        .debug-log-item {
+            background: rgba(255,255,255,0.06);
+            border-radius: 8px;
+            padding: 7px 9px;
+            color: #e5e7eb;
+            line-height: 1.4;
+        }
+
+        .debug-toggle {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: none;
+            background: #111827;
+            color: white;
+            font-size: 22px;
+            cursor: pointer;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+        }
+
+        .debug-toggle:hover { transform: scale(1.05); }
+
+        @media (max-width: 1100px) {
+            .sidebar { display: none; }
+            .topbar-header h1 { font-size: 34px; }
+            .message { max-width: 90%; }
+            .actions { max-width: 90%; }
+            .debug-panel {
+                width: 90%;
+                right: 5%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="logo-wrapper">
+            <img src="/static/logo.svg" alt="Clinic Logo">
+        </div>
+
+        <div class="menu-title">שירותים זמינים</div>
+
+        <div class="menu">
+            <div class="menu-card" onclick="quickMessage('אני רוצה לקבוע תור לקרדיולוג')">
+                <h3>📅 קביעת תור</h3>
+                <p>קביעת תורים לרופאים ושירותים</p>
+            </div>
+
+            <div class="menu-card" onclick="quickMessage('אני רוצה לבטל תור')">
+                <h3>❌ ביטול תור</h3>
+                <p>ביטול תורים קיימים</p>
+            </div>
+
+            <div class="menu-card" onclick="quickMessage('מה סטטוס הפניה 700')">
+                <h3>📄 סטטוס הפניה</h3>
+                <p>בדיקת מצב הפניה</p>
+            </div>
+
+            <div class="menu-card" onclick="quickMessage('מה עם טופס 17 מספר 801')">
+                <h3>🧾 סטטוס טופס 17</h3>
+                <p>בדיקת התחייבות ואישורים</p>
+            </div>
+
+            <div class="menu-card" onclick="quickMessage('אני רוצה לדבר עם מזכירה')">
+                <h3>👩‍💼 מזכירה אנושית</h3>
+                <p>העברה לנציג שירות</p>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            🔒 מערכת CRM חכמה לניהול תורים ופניות.
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="topbar">
+            <div class="topbar-header">
+                <span class="wave">👋</span>
+                <h1>שלום</h1>
+            </div>
+
+            <p>
+                אני העוזר הדיגיטלי של המרפאה.
+                אפשר לקבוע תור, לבטל תור, לבדוק הפניה וטופס 17.
+            </p>
+        </div>
+
+        <div class="status-row">
+            <div class="status-pill">מערכת פעילה</div>
+            <div class="state-indicator" id="stateIndicator">מצב שיחה: מוכן</div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="chat" id="chat"></div>
+        </div>
+
+        <div class="input-wrapper">
+            <div class="input-container">
+                <input
+                    id="messageInput"
+                    type="text"
+                    placeholder="כתבו הודעה..."
+                    autocomplete="off"
+                >
+
+                <button id="sendBtn" class="send-btn" onclick="sendMessage()">➜</button>
+            </div>
+
+            <div class="examples">
+                <div class="example-chip" onclick="quickMessage('אני רוצה לקבוע תור לקרדיולוג')">
+                    תור לקרדיולוג
+                </div>
+
+                <div class="example-chip" onclick="quickMessage('אני רוצה לבטל תור')">
+                    ביטול תור
+                </div>
+
+                <div class="example-chip" onclick="quickMessage('מה סטטוס הפניה 700')">
+                    סטטוס הפניה
+                </div>
+
+                <div class="example-chip" onclick="quickMessage('מה עם טופס 17 מספר 801')">
+                    טופס 17
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="debug-panel" id="debugPanel">
+    <div class="debug-header">
+        <h4>Debug State</h4>
+
+        <div class="debug-buttons">
+            <button class="debug-btn" onclick="minimizeDebugPanel()" title="Minimize">—</button>
+            <button class="debug-btn" onclick="closeDebugPanel()" title="Close">✕</button>
+        </div>
+    </div>
+
+    <div class="debug-section-title">State</div>
+    <pre id="debugState">No state yet</pre>
+
+    <div class="debug-section-title">Logs</div>
+    <div class="debug-log-list" id="debugLogs">
+        <div class="debug-log-item">No logs yet</div>
+    </div>
+</div>
+
+<button class="debug-toggle" id="debugToggle" onclick="openDebugPanel()">🐞</button>
+
+<script>
+    let currentState = null;
+    let isLoading = false;
+    let debugMinimized = false;
+
+    let threadId = localStorage.getItem("clinic_crm_thread_id");
+
+    if (!threadId) {
+        threadId = crypto.randomUUID();
+        localStorage.setItem("clinic_crm_thread_id", threadId);
+    }
+
+    console.log("THREAD ID:", threadId);
+
+    const chat = document.getElementById("chat");
+    const chatContainer = document.getElementById("chatContainer");
+    const input = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function scrollToBottom() {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function addMessage(text, type) {
+        const div = document.createElement("div");
+        div.className = `message ${type}`;
+        div.innerText = text || "לא התקבלה תשובה.";
+        chat.appendChild(div);
+        scrollToBottom();
+    }
+
+    function showTyping() {
+        removeTyping();
+
+        const div = document.createElement("div");
+        div.className = "typing";
+        div.id = "typing";
+        div.innerText = "המערכת בודקת...";
+        chat.appendChild(div);
+        scrollToBottom();
+    }
+
+    function removeTyping() {
+        const typing = document.getElementById("typing");
+        if (typing) typing.remove();
+    }
+
+    function clearActions() {
+        document
+            .querySelectorAll(".actions")
+            .forEach(element => element.remove());
+    }
+
+    function renderButtons(items, options = {}) {
+        clearActions();
+
+        if (!items || !items.length) return;
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "actions";
+
+        items.forEach(item => {
+            const button = document.createElement("button");
+
+            button.className = options.cardStyle
+                ? "appointment-card-btn"
+                : "action-btn";
+
+            button.innerText = options.getLabel
+                ? options.getLabel(item)
+                : item;
+
+            button.onclick = () => {
+                const message = options.getMessage
+                    ? options.getMessage(item)
+                    : item;
+
+                sendMessage(message);
+            };
+
+            wrapper.appendChild(button);
+        });
+
+        chat.appendChild(wrapper);
+        scrollToBottom();
+    }
+
+    function renderAvailableSlots(state) {
+        if (
+            state &&
+            state.waiting_for_time_selection &&
+            Array.isArray(state.available_slots)
+        ) {
+            renderButtons(state.available_slots);
+        }
+    }
+
+    function renderAppointmentsToCancel(state) {
+        if (
+            state &&
+            state.waiting_for_appointment_selection &&
+            Array.isArray(state.available_appointments)
+        ) {
+            renderButtons(state.available_appointments, {
+                cardStyle: true,
+                getLabel: appointment =>
+                    `ביטול תור ${appointment.appointment_id} · ${appointment.specialty} · ${appointment.slot}`,
+                getMessage: appointment =>
+                    `אני רוצה לבטל את תור ${appointment.appointment_id}`
+            });
+        }
+    }
+
+    function renderConfirmationButtons(state) {
+        if (state && state.waiting_for_confirmation) {
+            renderButtons(["כן", "לא"]);
+        }
+    }
+
+    function renderStateActions(state) {
+        clearActions();
+
+        renderAvailableSlots(state);
+        renderAppointmentsToCancel(state);
+        renderConfirmationButtons(state);
+    }
+
+    function updateStateIndicator(state) {
+        const indicator = document.getElementById("stateIndicator");
+
+        if (!state) {
+            indicator.innerText = "מצב שיחה: מוכן";
+            return;
+        }
+
+        if (state.waiting_for_specialty) {
+            indicator.innerText = "מצב שיחה: בחירת תחום";
+            return;
+        }
+
+        if (state.waiting_for_time_selection) {
+            indicator.innerText = "מצב שיחה: בחירת מועד";
+            return;
+        }
+
+        if (state.waiting_for_appointment_selection) {
+            indicator.innerText = "מצב שיחה: בחירת תור לביטול";
+            return;
+        }
+
+        if (state.waiting_for_confirmation) {
+            indicator.innerText = "מצב שיחה: ממתין לאישור";
+            return;
+        }
+
+        if (state.waiting_for_referral_id) {
+            indicator.innerText = "מצב שיחה: ממתין למספר הפניה";
+            return;
+        }
+
+        if (state.waiting_for_form17_id) {
+            indicator.innerText = "מצב שיחה: ממתין למספר טופס 17";
+            return;
+        }
+
+        if (state.active_flow) {
+            indicator.innerText = `מצב שיחה: ${state.active_flow}`;
+            return;
+        }
+
+        indicator.innerText = "מצב שיחה: מוכן";
+    }
+
+    function updateDebugPanel(state) {
+        const debug = document.getElementById("debugState");
+        const debugLogs = document.getElementById("debugLogs");
+
+        if (!debug || !debugLogs) return;
+
+        if (!state) {
+            debug.innerText = "No state yet";
+            debugLogs.innerHTML = `<div class="debug-log-item">No logs yet</div>`;
+            return;
+        }
+
+        debug.innerText = JSON.stringify({
+            thread_id: threadId,
+
+            intent: state.intent,
+            active_flow: state.active_flow,
+
+            waiting_for_specialty: state.waiting_for_specialty,
+            waiting_for_time_selection: state.waiting_for_time_selection,
+            waiting_for_appointment_selection: state.waiting_for_appointment_selection,
+            waiting_for_confirmation: state.waiting_for_confirmation,
+            waiting_for_referral_id: state.waiting_for_referral_id,
+            waiting_for_form17_id: state.waiting_for_form17_id,
+
+            specialty: state.specialty,
+            selected_slot: state.selected_slot,
+            selected_appointment_id: state.selected_appointment_id,
+
+            pending_action: state.pending_action,
+            pending_data: state.pending_data,
+
+            available_slots: state.available_slots,
+            available_appointments: state.available_appointments,
+
+            tool_result: state.tool_result,
+            answer: state.answer
+        }, null, 2);
+
+        const logs = Array.isArray(state.logs) ? state.logs : [];
+
+        if (!logs.length) {
+            debugLogs.innerHTML = `<div class="debug-log-item">No logs yet</div>`;
+            return;
+        }
+
+        debugLogs.innerHTML = logs
+            .map(log => `<div class="debug-log-item">${escapeHtml(log)}</div>`)
+            .join("");
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function closeDebugPanel() {
+        const panel = document.getElementById("debugPanel");
+        const toggle = document.getElementById("debugToggle");
+
+        panel.style.display = "none";
+        toggle.style.display = "block";
+    }
+
+    function openDebugPanel() {
+        const panel = document.getElementById("debugPanel");
+        const toggle = document.getElementById("debugToggle");
+
+        panel.style.display = "block";
+        toggle.style.display = "none";
+    }
+
+    function minimizeDebugPanel() {
+        const panel = document.getElementById("debugPanel");
+        const debugState = document.getElementById("debugState");
+        const debugLogs = document.getElementById("debugLogs");
+
+        debugMinimized = !debugMinimized;
+
+        if (debugMinimized) {
+            debugState.style.display = "none";
+            debugLogs.style.display = "none";
+            panel.style.height = "auto";
+        } else {
+            debugState.style.display = "block";
+            debugLogs.style.display = "flex";
+        }
+    }
+
+    function setLoading(value) {
+        isLoading = value;
+        sendBtn.disabled = value;
+        input.disabled = value;
+    }
+
+    async function sendMessage(messageOverride = null) {
+        if (isLoading) return;
+
+        const message = messageOverride || input.value.trim();
+        if (!message) return;
+
+        clearActions();
+        addMessage(message, "user");
+        input.value = "";
+
+        setLoading(true);
+        showTyping();
+
+        try {
+            const response = await fetch("/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: message,
+                    thread_id: threadId,
+                }),
+            });
+
+            const data = await response.json();
+
+            console.log("RESPONSE:", data);
+
+            currentState = data.state || null;
+
+            removeTyping();
+
+            updateStateIndicator(currentState);
+            updateDebugPanel(currentState);
+
+            const botAnswer =
+                data.answer ||
+                data.detail ||
+                "לא הצלחתי להפיק תשובה.";
+
+            addMessage(botAnswer, "bot");
+
+            renderStateActions(currentState);
+
+            console.log("STATE:", currentState);
+
+        } catch (error) {
+            console.error("CHAT ERROR:", error);
+
+            removeTyping();
+
+            addMessage(
+                "שגיאת חיבור לשרת. בדקי שהשרת רץ ושאת נמצאת בכתובת http://127.0.0.1:8000",
+                "bot"
+            );
+        } finally {
+            setLoading(false);
+            input.focus();
+        }
+    }
+
+    function quickMessage(text) {
+        input.value = text;
+        sendMessage();
+    }
+
+    input.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    });
+
+    addMessage(
+        "ברוכים הבאים למערכת ה־CRM של המרפאה 😊\n\nאפשר לקבוע תורים, לבטל תורים, לבדוק הפניות וטופס 17.",
+        "bot"
+    );
+</script>
+
+</body>
+</html>
