@@ -25,7 +25,7 @@ class ClinicCRMState(TypedDict):
     ]
 
     active_flow: Optional[str]
-
+    last_completed_flow: Optional[str]
     # For this MVP we assume the patient is already authenticated.
     patient_id: Optional[str]
 
@@ -54,4 +54,6 @@ class ClinicCRMState(TypedDict):
     available_appointments: Optional[list]
     selected_appointment_id: Optional[str]
     waiting_for_appointment_selection: bool
+
+    
     logs: list[str]

@@ -2,15 +2,15 @@ try:
     import certifi_win32
 except ImportError:
     pass
-import logging
-import os
+
 
 from dotenv import load_dotenv
 from logger_config import setup_logging
 
 load_dotenv()
 setup_logging()
-
+import logging
+import os
 print("OPENAI KEY EXISTS:", bool(os.getenv("OPENAI_API_KEY")))
 
 from fastapi import FastAPI
@@ -60,6 +60,7 @@ def create_initial_state(user_input: str):
         "needs_human": False,
         "logs": [],
         "messages": [],
+        "last_completed_flow": None,
     }
 
 

@@ -82,7 +82,7 @@ def context_guard_node(state: ClinicCRMState):
         return {
         **new_state,
         "intent": "general_feedback",
-        "answer": "בסדר, יצאתי מהתהליך. אפשר להתחיל פעולה חדשה.",
+        "tool_result": "flow_cancelled",
         "logs": add_log(new_state, "STATE RESET BY USER TEXT"),
     }
 
@@ -169,7 +169,48 @@ def classify_intent_node(state: ClinicCRMState):
         state,
         f"NODE classify_intent_node | text={state.get('user_input')}",
     )
+    if state.get("tool_result") == "flow_cancelled":
+        return {
+        **state,
+        "intent": "general_feedback",
+        "logs": add_log(state, "ROUTE | flow_cancelled"),
+     }
     explicit_flow = detect_explicit_new_flow(state["user_input"])
+    text = state["user_input"].lower()
+    number = extract_first_number(text)
+    
+    if (
+    state.get("last_completed_flow") == "form17_status"
+    and number
+    ):
+        return {
+        **state,
+        "intent": "form17_status",
+        "decision_summary": (
+            "Deterministic continuation after previous Form 17 flow."
+        ),
+        "logs": add_log(
+            state,
+            "LAST FLOW CONTINUATION | form17_status",
+        ),
+    }
+    if (
+    state.get("last_completed_flow") == "referral_status"
+   
+    and number
+):
+        return {
+        **state,
+        "intent": "referral_status",
+        "decision_summary": (
+            "Deterministic continuation after previous referral flow."
+        ),
+        "logs": add_log(
+            state,
+            "LAST FLOW CONTINUATION | referral_status",
+        ),
+    }
+
 
     if explicit_flow == "human_escalation":
         return {
@@ -317,6 +358,11 @@ User message:
     return {
         **state,
         "intent": result.intent,
+        "last_completed_flow": (
+         state.get("last_completed_flow")
+        if result.intent == "unknown"
+        else None
+        ),
         "active_flow": result.intent if result.intent != "unknown" else None,
         "classification_confidence": result.confidence,
         "decision_summary": (
@@ -843,6 +889,7 @@ def referral_status_node(state: ClinicCRMState):
         **state,
         "referral_id": referral_id,
         "active_flow": None,
+        "last_completed_flow": "referral_status",
         "waiting_for_referral_id": False,
         "tool_result": tool_result,
         "logs": add_log(state, f"REFERRAL STATUS RESULT | result={tool_result}"),
@@ -874,12 +921,13 @@ def form17_status_node(state: ClinicCRMState):
     tool_result = get_form17_status(form17_id)
 
     return {
-        **state,
-        "form17_id": form17_id,
-        "active_flow": None,
-        "waiting_for_form17_id": False,
-        "tool_result": tool_result,
-        "logs": add_log(state, f"FORM17 STATUS RESULT | result={tool_result}"),
+    **state,
+    "form17_id": form17_id,
+    "active_flow": None,
+    "last_completed_flow": "form17_status",
+    "waiting_for_form17_id": False,
+    "tool_result": tool_result,
+    "logs": add_log(state, f"FORM17 STATUS RESULT | result={tool_result}"),
     }
 
 
@@ -992,6 +1040,16 @@ def generate_response_node(state: ClinicCRMState):
             "answer": "בסדר, הפעולה לא בוצעה.",
             "logs": add_log(state, "RESPONSE MODE | confirmation_rejected"),
         }
+    if state.get("tool_result") == "flow_cancelled":
+        return {
+        **state,
+        "answer": "בסדר גמור, יצאתי מהתהליך. אפשר להתחיל פעולה חדשה.",
+        "logs": add_log(state, "RESPONSE MODE | flow_cancelled"),
+    }
+
+
+
+
     if state.get("intent") == "general_feedback":
         response = model.invoke(f"""
 You are an AI CRM assistant for a healthcare clinic secretary.
