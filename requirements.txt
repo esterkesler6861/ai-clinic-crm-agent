@@ -8,3 +8,4 @@ chromadb
 pypdf
 langchain-community
 langchain-openai
+langchain-chroma
