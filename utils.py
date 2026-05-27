@@ -110,7 +110,14 @@ def extract_first_number(text: str):
     return match.group() if match else None
 
 
+def extract_form17_id(text: str):
+    numbers = re.findall(r"\d+", text)
 
+    for number in numbers:
+        if number != "17":
+            return number
+
+    return None
 
 
 def should_reset_by_text(text: str) -> bool:
@@ -126,7 +133,19 @@ def should_reset_by_text(text: str) -> bool:
         "start over",
         "new question",
         "never mind",
-    ]
+        "אני רוצה לצאת",
+        "לצאת מהתהליך",
+        "אני רוצה להתחיל מחדש",    
+        "אני רוצה להתחיל שיחה חדשה",    
+        "restart",
+        "start over",
+        "new question",
+        "never mind",
+        "stop",
+        "exit",
+        "cancel flow",
+    
+      ],  
 
     return any(keyword in text for keyword in reset_keywords)
 

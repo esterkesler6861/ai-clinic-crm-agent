@@ -20,6 +20,7 @@ from utils import (
     should_reset_by_text,
     add_log,
     build_history_text,
+    extract_form17_id
 )
 from ai_helpers import resolve_slot_with_ai
 from prompts import (
@@ -79,9 +80,11 @@ def context_guard_node(state: ClinicCRMState):
         new_state = reset_state(state)
 
         return {
-            **new_state,
-            "logs": add_log(new_state, "STATE RESET BY USER TEXT"),
-        }
+        **new_state,
+        "intent": "general_feedback",
+        "answer": "בסדר, יצאתי מהתהליך. אפשר להתחיל פעולה חדשה.",
+        "logs": add_log(new_state, "STATE RESET BY USER TEXT"),
+    }
 
     has_active_waiting = (
         state.get("waiting_for_specialty", False)
@@ -852,7 +855,7 @@ def form17_status_node(state: ClinicCRMState):
         f"NODE form17_status_node | text={state.get('user_input')}",
     )
 
-    form17_id = extract_first_number(state["user_input"])
+    form17_id = extract_form17_id(state["user_input"])
 
     state = with_log(
         state,
@@ -865,7 +868,7 @@ def form17_status_node(state: ClinicCRMState):
             "active_flow": "form17_status",
             "waiting_for_form17_id": True,
             "tool_result": None,
-            "logs": add_log(state, "FORM17 STATUS NEEDS ID"),
+            "logs": add_log(state, "לא נמצאה התחייבות עם המספר שלחת. אנא וודא שהמספר שהזנת נכון ונסה שוב."), 
         }
 
     tool_result = get_form17_status(form17_id)
