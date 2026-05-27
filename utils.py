@@ -145,7 +145,7 @@ def should_reset_by_text(text: str) -> bool:
         "exit",
         "cancel flow",
     
-      ],  
+      ]
 
     return any(keyword in text for keyword in reset_keywords)
 
