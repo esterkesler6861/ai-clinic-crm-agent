@@ -20,7 +20,8 @@ class ClinicCRMState(TypedDict):
             "unknown",
             "select_appointment_to_cancel",
             "general_feedback",
-            "unsupported_topic"
+            "unsupported_topic" ,
+            "knowledge_request"
         ]
     ]
 

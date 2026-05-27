@@ -49,6 +49,28 @@ generate_response
 
 # Main Components
 
+## Code Organization (post-modularization)
+
+To keep the public import path stable (`from nodes import *`) while refactoring, the code is split as follows:
+
+```text
+nodes.py                     # facade / re-exports for LangGraph
+workflow_nodes/              # real node implementations (modular)
+  logging_utils.py
+  context_guard.py
+  intent_classification.py
+  response_generation.py
+  appointment_booking.py     # currently re-exports legacy nodes_booking.py
+  appointment_cancellation.py
+  statuses.py
+  commons.py
+prompt_templates/            # prompt strings + formatter helpers
+  clinic_crm.py
+  customer_support.py
+prompts.py                   # facade / re-exports for prompt_templates
+```
+
+
 ## FastAPI
 
 Backend API:
@@ -63,7 +85,15 @@ Backend API:
 
 Main orchestration layer.
 
-Current graph includes:
+The graph is defined in `graph.py` and imports nodes using:
+
+* `from nodes import *`
+
+`nodes.py` is intentionally kept as a **backward-compatible facade** (stable import path) and re-exports the real implementations from the `workflow_nodes/` package.
+
+### Nodes in the graph
+
+Routing / orchestration nodes:
 
 * context_guard_node
 * classify_intent_node
@@ -84,6 +114,7 @@ Workflow nodes:
 * general_feedback_node
 * unsupported_topic_node
 * unknown_node
+
 
 ---
 
@@ -186,7 +217,19 @@ High-confidence classifications skip evaluator for performance and lower latency
 
 ---
 
+# Prompts
+
+Prompts are now organized under `prompt_templates/`:
+
+* `prompt_templates/clinic_crm.py` – clinic CRM prompts + formatter helpers
+* `prompt_templates/customer_support.py` – customer support/router prompts
+
+`prompts.py` remains as a backward-compatible facade to keep imports stable across the codebase.
+
+---
+
 # Context Guard
+
 
 Handles:
 

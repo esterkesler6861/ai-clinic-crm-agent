@@ -4,3 +4,7 @@ python-dotenv
 langgraph
 langchain-openai
 pydantic
+chromadb
+pypdf
+langchain-community
+langchain-openai

@@ -12,6 +12,7 @@ class IntentResult(BaseModel):
         "general_feedback",
         "unknown",
         "unsupported_topic",
+        "knowledge_request"
     ]
     confidence: float
     needs_clarification: bool

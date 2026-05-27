@@ -37,6 +37,11 @@ graph_builder.add_node("unknown", unknown_node)
 
 graph_builder.add_node("generate_response", generate_response_node)
 
+graph_builder.add_node(
+    "knowledge_request",
+    knowledge_request_node,
+)
+
 # Edges
 graph_builder.add_edge(START, "context_guard")
 graph_builder.add_edge("context_guard", "classify_intent")
@@ -66,7 +71,7 @@ graph_builder.add_edge("human_escalation", "generate_response")
 graph_builder.add_edge("general_feedback", "generate_response")
 graph_builder.add_edge("unsupported_topic", "generate_response")
 graph_builder.add_edge("unknown", "generate_response")
-
+graph_builder.add_edge("knowledge_request", "generate_response")
 graph_builder.add_edge("generate_response", END)
 
 graph = graph_builder.compile(checkpointer=checkpointer)
