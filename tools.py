@@ -36,9 +36,9 @@ REFERRALS = {
 }
 
 FORM17_REQUESTS = {
-    "800": "Form 17 approved.",
-    "801": "Form 17 waiting for documents.",
-    "802": "Form 17 rejected.",
+    "800": "הבקשה אושרה.",
+    "801": "הבקשה ממתינה להשלמת מסמכים.",
+    "802": "הבקשה סורבה.",
 }
 
 
@@ -99,4 +99,4 @@ def get_referral_status(referral_id: str) -> str:
 
 
 def get_form17_status(form17_id: str) -> str:
-    return FORM17_REQUESTS.get(form17_id, "Form 17 not found.")
+    return FORM17_REQUESTS.get(form17_id, "לא נמצאה בקשת התחייבות עם המספר שספקת.")
