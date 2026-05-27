@@ -1,4 +1,7 @@
-# import certifi_win32
+try:
+    import certifi_win32
+except ImportError:
+    pass
 import logging
 import os
 
@@ -15,6 +18,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from graph import graph
+from pydantic import BaseModel
+from typing import Any
+from routing_tests import run_routing_tests
 from schemas import ChatRequest, ChatResponse
 
 logger = logging.getLogger(__name__)
@@ -123,3 +129,22 @@ def chat(request: ChatRequest):
             "answer": f"שגיאה: {str(e)}",
             "state": fallback_state,
         }
+
+class RoutingTestCase(BaseModel):
+    input: str
+    expected_intent: str
+
+
+class RoutingTestRequest(BaseModel):
+    tests: list[RoutingTestCase] | None = None
+
+
+@app.get("/routing-dashboard")
+def routing_dashboard():
+    return FileResponse("static/routing_dashboard.html")
+
+
+@app.post("/routing-tests")
+def routing_tests(request: RoutingTestRequest):
+    tests = [test.model_dump() for test in request.tests] if request.tests else None
+    return run_routing_tests(tests)

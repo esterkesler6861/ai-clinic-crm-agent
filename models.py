@@ -1,13 +1,13 @@
 from langchain_openai import ChatOpenAI
 
-from schemas import IntentResult, FlowDecision,FlowDecision, ClassificationEvaluation   
+from schemas import IntentResult, FlowDecision, ClassificationEvaluation
 
 
 COMMON_CONFIG = {
     "model": "gpt-4.1-mini",
     "temperature": 0,
-    "max_retries": 1,
-    "timeout": 30,
+    "max_retries": 2,
+    "timeout": 60,
 }
 
 model = ChatOpenAI(**COMMON_CONFIG)

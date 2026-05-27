@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>Routing Test Dashboard</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef3fb;
+            padding: 30px;
+            color: #1f2937;
+        }
+
+        h1 {
+            color: #1b2b7f;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 18px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 220px;
+            direction: ltr;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 22px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 12px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .summary {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .summary-card {
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 16px 20px;
+            min-width: 150px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: right;
+            vertical-align: top;
+        }
+
+        th {
+            background: #1f2d86;
+            color: white;
+        }
+
+        .pass {
+            color: #15803d;
+            font-weight: bold;
+        }
+
+        .fail {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        details {
+            direction: ltr;
+            text-align: left;
+            white-space: pre-wrap;
+            font-size: 13px;
+        }
+
+        .error {
+            color: #dc2626;
+            font-weight: bold;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Routing Test Dashboard</h1>
+
+<div class="panel">
+    <p>אפשר להדביק JSON של בדיקות או להריץ את ברירת המחדל.</p>
+
+    <textarea id="jsonInput">[
+  {
+    "input": "אני רוצה לקבוע תור",
+    "expected_intent": "book_appointment"
+  },
+  {
+    "input": "צריכה ילדים",
+    "expected_intent": "book_appointment"
+  },
+  {
+    "input": "אני רוצה לבטל תור",
+    "expected_intent": "cancel_appointment"
+  },
+  {
+    "input": "מה מזג האוויר",
+    "expected_intent": "unsupported_topic"
+  }
+]</textarea>
+
+    <br>
+
+    <button onclick="runTests()">Run Tests</button>
+    <button onclick="runDefaultTests()">Run Default Tests</button>
+
+    <div id="error" class="error"></div>
+</div>
+
+<div class="panel">
+    <div class="summary" id="summary">
+        <div class="summary-card">No results yet</div>
+    </div>
+</div>
+
+<div class="panel">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Input</th>
+                <th>Expected</th>
+                <th>Actual</th>
+                <th>Result</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+</div>
+
+<script>
+    async function runTests() {
+        clearError();
+
+        let tests;
+
+        try {
+            tests = JSON.parse(document.getElementById("jsonInput").value);
+        } catch (error) {
+            showError("JSON לא תקין");
+            return;
+        }
+
+        if (!Array.isArray(tests)) {
+            showError("ה־JSON חייב להיות רשימה של בדיקות");
+            return;
+        }
+
+        await sendTests({ tests });
+    }
+
+    async function runDefaultTests() {
+        clearError();
+        await sendTests({});
+    }
+
+    async function sendTests(payload) {
+        try {
+            const response = await fetch("/routing-tests", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            renderSummary(data);
+            renderResults(data.results || []);
+
+        } catch (error) {
+            console.error(error);
+            showError("שגיאה בהרצת הבדיקות");
+        }
+    }
+
+    function renderSummary(data) {
+        document.getElementById("summary").innerHTML = `
+            <div class="summary-card">Total: ${data.total}</div>
+            <div class="summary-card">Passed: ${data.passed}</div>
+            <div class="summary-card">Failed: ${data.failed}</div>
+            <div class="summary-card">Success Rate: ${data.success_rate}%</div>
+        `;
+    }
+
+    function renderResults(results) {
+        const body = document.getElementById("resultsBody");
+
+        body.innerHTML = results.map(item => `
+            <tr>
+                <td>${item.index}</td>
+                <td>${escapeHtml(item.input)}</td>
+                <td>${escapeHtml(item.expected_intent)}</td>
+                <td>${escapeHtml(item.actual_intent)}</td>
+                <td class="${item.success ? "pass" : "fail"}">
+                    ${item.success ? "PASS" : "FAIL"}
+                </td>
+                <td>
+                    <details>
+                        <summary>Open</summary>
+
+ANSWER:
+${escapeHtml(item.answer || "")}
+
+DECISION SUMMARY:
+${escapeHtml(item.decision_summary || "")}
+
+LOGS:
+${escapeHtml((item.logs || []).join("\n"))}
+                    </details>
+                </td>
+            </tr>
+        `).join("");
+    }
+
+    function showError(message) {
+        document.getElementById("error").innerText = message;
+    }
+
+    function clearError() {
+        document.getElementById("error").innerText = "";
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+</script>
+
+</body>
+</html>

@@ -708,10 +708,12 @@
 
         debug.innerText = JSON.stringify({
             thread_id: threadId,
-
+            
             intent: state.intent,
             active_flow: state.active_flow,
 
+            decision_summary: state.decision_summary,
+            
             waiting_for_specialty: state.waiting_for_specialty,
             waiting_for_time_selection: state.waiting_for_time_selection,
             waiting_for_appointment_selection: state.waiting_for_appointment_selection,

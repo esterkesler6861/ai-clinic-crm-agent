@@ -166,7 +166,16 @@ def classify_intent_node(state: ClinicCRMState):
         state,
         f"NODE classify_intent_node | text={state.get('user_input')}",
     )
+    explicit_flow = detect_explicit_new_flow(state["user_input"])
 
+    if explicit_flow == "human_escalation":
+        return {
+        **state,
+        "intent": "human_escalation",
+        "active_flow": None,
+        "decision_summary": "Deterministic override detected human escalation request.",
+        "logs": add_log(state, "OVERRIDE ROUTE | human_escalation"),
+        }
     if state.get("waiting_for_appointment_selection", False):
         return {
             **state,
@@ -301,44 +310,74 @@ Conversation history:
 User message:
 {state["user_input"]}
 """)
-    if result.confidence < 0.65:
-        return {
-            **state,
-            "intent": "unknown",
-            "active_flow": None,
-            "logs": add_log(
-                state,
-                f"LOW CONFIDENCE ROUTE | original_intent={result.intent} | confidence={result.confidence} | reason={result.reason}",
-            ),
-        }
+    
     return {
         **state,
         "intent": result.intent,
         "active_flow": result.intent if result.intent != "unknown" else None,
         "classification_confidence": result.confidence,
+        "decision_summary": (
+    f"Classifier selected intent '{result.intent}' "
+    f"with confidence {result.confidence}. "
+    f"Reason: {result.reason}"
+),
         "logs": add_log(
             state,
+            
             f"INTENT CLASSIFIED | intent={result.intent} | confidence={result.confidence} | needs_clarification={result.needs_clarification} | missing_fields={result.missing_fields} | reason={result.reason}",
         ),
     }
-
 def route_after_classification(state: ClinicCRMState):
-
+    intent = state.get("intent") or "unknown"
     confidence = state.get("classification_confidence", 1)
+    text = (state.get("user_input") or "").lower()
 
     logger.info(
-        f"ROUTE AFTER CLASSIFICATION | confidence={confidence}"
+        f"ROUTE AFTER CLASSIFICATION | intent={intent} | confidence={confidence}"
     )
 
-    if confidence < 0.75:
-        logger.info("LOW CONFIDENCE -> evaluate_classification")
+    clinic_keywords = [
+        "תור",
+        "לקבוע",
+        "לבטל",
+        "הפניה",
+        "טופס 17",
+        "התחייבות",
+        "מזכירה",
+        "נציג",
+        "מענה אנושי",
+        "רופא",
+        "מרפאה",
+    ]
+
+    suspicious = False
+    reasons = []
+
+    if confidence < 0.65:
+        suspicious = True
+        reasons.append("very_low_confidence")
+
+    if intent == "unknown" and any(word in text for word in clinic_keywords):
+        suspicious = True
+        reasons.append("unknown_but_clinic_related")
+
+    if intent == "unsupported_topic" and any(word in text for word in clinic_keywords):
+        suspicious = True
+        reasons.append("unsupported_but_clinic_related")
+
+    if intent == "general_feedback" and any(word in text for word in clinic_keywords):
+        suspicious = True
+        reasons.append("feedback_but_workflow_related")
+
+    if suspicious:
+        logger.info(
+            f"SUSPICIOUS CLASSIFICATION -> evaluate_classification | reasons={reasons}"
+        )
         return "evaluate_classification"
 
-    intent = state.get("intent") or "unknown"
-
-    logger.info(f"HIGH CONFIDENCE -> direct route | intent={intent}")
-
+    logger.info(f"CLASSIFICATION OK -> direct route | intent={intent}")
     return intent
+
 
 def evaluate_classification_node(state: ClinicCRMState):
 
@@ -384,12 +423,29 @@ Return:
     )
 
     if result.decision_valid:
-        return state
+        previous_summary = state.get("decision_summary") or ""
 
-    if result.suggested_intent:
         return {
+        **state,
+        "decision_summary": (
+            previous_summary
+            + f" Evaluator approved the classification. "
+              f"Reason: {result.evaluation_reason}"
+        ),
+    }
+        
+    if result.suggested_intent:
+        
+      previous_summary = state.get("decision_summary") or ""
+      return {
             **state,
             "intent": result.suggested_intent,
+            "decision_summary": (
+            previous_summary
+            + f" Evaluator rejected the original classification "
+              f"and changed intent to '{result.suggested_intent}'. "
+              f"Reason: {result.evaluation_reason}"
+        ),
             "logs": add_log(
                 state,
                 f"EVALUATOR CHANGED INTENT | new_intent={result.suggested_intent}",
@@ -831,7 +887,7 @@ def human_escalation_node(state: ClinicCRMState):
         **state,
         "needs_human": True,
         "active_flow": None,
-        "tool_result": "הבקשה הזו דורשת טיפול של מזכירה אנושית.",
+        "tool_result": "מעבירים אותך לנציג אנושי , זה עלול לקחת כמה רגעים. תודה על הסבלנות.", 
         "logs": add_log(state, "HUMAN ESCALATION REQUIRED"),
     }
 

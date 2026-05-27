@@ -5,6 +5,7 @@ from typing_extensions import TypedDict
 class ClinicCRMState(TypedDict):
     user_input: str
     messages: list[dict[str, str]]
+    decision_summary: Optional[str]
     classification_confidence: Optional[float]
     intent: Optional[
         Literal[
