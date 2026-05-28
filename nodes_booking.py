@@ -7,7 +7,6 @@ from ai_helpers import resolve_slot_with_ai
 from nodes_shared import with_log
 
 
-
 def book_appointment_node(state: ClinicCRMState):
     state = with_log(
         state,
@@ -43,6 +42,10 @@ def book_appointment_node(state: ClinicCRMState):
         return {
             **state,
             "specialty": specialty,
+            "last_topic": "doctor_availability",
+            "last_entities": {
+                "specialty": specialty,
+            },
             "active_flow": None,
             "waiting_for_specialty": False,
             "waiting_for_time_selection": False,
@@ -55,6 +58,10 @@ def book_appointment_node(state: ClinicCRMState):
     return {
         **state,
         "specialty": specialty,
+        "last_topic": "doctor_availability",
+        "last_entities": {
+            "specialty": specialty,
+        },
         "active_flow": "book_appointment",
         "waiting_for_specialty": False,
         "waiting_for_time_selection": True,
@@ -66,6 +73,7 @@ def book_appointment_node(state: ClinicCRMState):
         "tool_result": None,
         "logs": add_log(state, "BOOKING WAITING FOR SLOT SELECTION"),
     }
+
 
 def select_appointment_slot_node(state: ClinicCRMState):
     state = with_log(
@@ -95,7 +103,6 @@ def select_appointment_slot_node(state: ClinicCRMState):
     )
 
     if not matching_slot:
-
         history_text = build_history_text(state)
 
         ai_result = resolve_slot_with_ai(

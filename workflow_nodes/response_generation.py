@@ -11,6 +11,35 @@ def generate_response_node(state: ClinicCRMState):
         f"NODE generate_response_node | intent={state.get('intent')} | active_flow={state.get('active_flow')} | pending_action={state.get('pending_action')}",
     )
     history_text = build_history_text(state)
+
+    if state.get("tool_result") == "off_topic_during_flow":
+        pending_action = state.get("pending_action")
+
+        if pending_action == "book_appointment":
+            pending_data = state.get("pending_data") or {}
+            specialty = pending_data.get("specialty") or state.get("specialty")
+            slot = pending_data.get("slot") or state.get("selected_slot")
+            msg = (
+                f"עדיין מחכה לאישורך לתור ל{specialty} במועד {slot}.\n"
+                "לאשר את התור?"
+            )
+        else:
+            slots = state.get("available_slots") or []
+            slots_text = ", ".join(slots) if slots else "המועדים שמופיעים"
+            specialty = state.get("specialty")
+            msg = (
+                f"אני עדיין באמצע קביעת תור ל{specialty}. "
+                f"המועדים הפנויים הם: {slots_text}.\n"
+                "אם רצית לשאול שאלה אחרת, כתוב 'עזוב' ואצא מהתהליך.\n"
+                "איזה מועד מתאים לך?"
+            )
+
+        return {
+            **state,
+            "answer": msg,
+            "logs": add_log(state, "RESPONSE MODE | off_topic_during_flow"),
+        }
+
     if state.get("waiting_for_specialty", False):
         return {
             **state,

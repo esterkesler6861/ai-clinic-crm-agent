@@ -3,53 +3,60 @@ try:
 except ImportError:
     pass
 
-
 from dotenv import load_dotenv
 from logger_config import setup_logging
 
 load_dotenv()
 setup_logging()
+
 import logging
 import os
-print("OPENAI KEY EXISTS:", bool(os.getenv("OPENAI_API_KEY")))
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from graph import graph
-from pydantic import BaseModel
-from typing import Any
 from routing_tests import run_routing_tests
 from schemas import ChatRequest, ChatResponse
 
+from pydantic import BaseModel
+
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+print("OPENAI KEY EXISTS:", bool(os.getenv("OPENAI_API_KEY")))
 
+app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 def create_initial_state(user_input: str):
     return {
         "user_input": user_input,
-        # REQUIRED FOR LANGGRAPH CHECKPOINTER
         "thread_id": "demo-thread",
+
         "intent": None,
         "active_flow": None,
         "patient_id": "demo-patient-123",
+
         "appointment_id": None,
         "specialty": None,
         "referral_id": None,
         "form17_id": None,
+
         "available_slots": None,
         "selected_slot": None,
+
         "available_appointments": None,
         "selected_appointment_id": None,
+
         "pending_action": None,
         "pending_data": None,
+
         "tool_result": None,
         "answer": None,
+
         "waiting_for_specialty": False,
         "waiting_for_time_selection": False,
         "waiting_for_confirmation": False,
@@ -57,23 +64,22 @@ def create_initial_state(user_input: str):
         "waiting_for_referral_id": False,
         "waiting_for_form17_id": False,
         "waiting_for_appointment_selection": False,
+
         "needs_human": False,
         "logs": [],
         "messages": [],
         "last_completed_flow": None,
+
+        "current_datetime": None,
+        "current_date": None,
+        "current_time": None,
+        "current_weekday": None,
+        "timezone": None,
+
+        "conversation_frame": None,
+        "resolved_user_input": None,
+        "is_followup": False,
     }
-
-
-def normalize_state(state: dict, user_input: str):
-    base_state = create_initial_state(user_input)
-
-    base_state.update(state or {})
-
-    base_state["user_input"] = user_input
-    base_state["answer"] = None
-    base_state["tool_result"] = None
-    base_state["messages"] = (state.get("messages") or [])[-10:]
-    return base_state
 
 
 @app.get("/")
@@ -87,36 +93,42 @@ def chat(request: ChatRequest):
     try:
         logger.info(f"CHAT REQUEST | message={request.message}")
 
+        now = datetime.now().astimezone()
+
+        # חשוב:
+        # לא מאפסים כאן את כל ה-state.
+        # נותנים ל-LangGraph checkpointer לשמור את מצב השיחה לפי thread_id.
         state = {
             "user_input": request.message,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": request.message,
-                }
-            ],
+            "thread_id": request.thread_id or "demo-thread",
+            "current_datetime": now.isoformat(),
+            "current_date": now.strftime("%Y-%m-%d"),
+            "current_time": now.strftime("%H:%M"),
+            "current_weekday": now.strftime("%A"),
+            "timezone": str(now.tzinfo),
         }
 
         result = graph.invoke(
             state,
             config={
                 "configurable": {
-                    "thread_id": request.thread_id
+                    "thread_id": request.thread_id or "demo-thread",
                 }
             },
         )
 
-        messages = result.get("messages") or []
+        final_answer = (
+            result.get("answer")
+            or result.get("tool_result")
+            or "לא התקבלה תשובה."
+        )
 
-        messages.append({
-            "role": "assistant",
-            "content": result.get("answer") or "",
-        })
-
-        result["messages"] = messages[-10:]
+        logger.info(f"FINAL ANSWER | {final_answer}")
+        logger.info(f"FINAL INTENT | {result.get('intent')}")
+        logger.info(f"FINAL ACTIVE FLOW | {result.get('active_flow')}")
 
         return {
-            "answer": result.get("answer") or "לא הצלחתי להפיק תשובה.",
+            "answer": final_answer,
             "state": result,
         }
 
@@ -130,6 +142,7 @@ def chat(request: ChatRequest):
             "answer": f"שגיאה: {str(e)}",
             "state": fallback_state,
         }
+
 
 class RoutingTestCase(BaseModel):
     input: str
@@ -147,5 +160,10 @@ def routing_dashboard():
 
 @app.post("/routing-tests")
 def routing_tests(request: RoutingTestRequest):
-    tests = [test.model_dump() for test in request.tests] if request.tests else None
+    tests = (
+        [test.model_dump() for test in request.tests]
+        if request.tests
+        else None
+    )
+
     return run_routing_tests(tests)

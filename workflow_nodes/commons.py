@@ -163,6 +163,14 @@ def unknown_node(state: ClinicCRMState):
         f"NODE unknown_node | text={state.get('user_input')}",
     )
 
+    # אם זה off_topic_during_flow — שמור את ה-flow והמתנה הפעילים
+    if state.get("tool_result") == "off_topic_during_flow":
+        return {
+            **state,
+            "intent": "unknown",
+            "logs": add_log(state, "UNKNOWN INTENT | off_topic, keeping flow active"),
+        }
+
     return {
         **state,
         "active_flow": None,

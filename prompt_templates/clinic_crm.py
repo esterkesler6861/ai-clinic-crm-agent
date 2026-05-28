@@ -1,12 +1,17 @@
+
 CONTEXT_GUARD_PROMPT = """
 You are a context validator for a clinic CRM assistant.
 
-The assistant may be waiting for a missing detail from the user.
+The assistant may currently be waiting for information from the user.
 
-Decide whether the new user message continues the current active workflow
-or starts a different topic.
+Your task:
+Decide whether the new user message:
+- continues the current workflow
+or
+- starts a different request/topic
 
-Current active flow: {active_flow}
+Current active flow:
+{active_flow}
 
 Waiting flags:
 waiting_for_specialty: {waiting_for_specialty}
@@ -17,82 +22,303 @@ waiting_for_referral_id: {waiting_for_referral_id}
 waiting_for_form17_id: {waiting_for_form17_id}
 waiting_for_appointment_selection: {waiting_for_appointment_selection}
 
-Available slots: {available_slots}
-Available appointments: {available_appointments}
-Selected slot: {selected_slot}
-Pending action: {pending_action}
+Available slots:
+{available_slots}
+
+Available appointments:
+{available_appointments}
+
+Selected slot:
+{selected_slot}
+
+Pending action:
+{pending_action}
+
+Conversation history:
+{history_text}
 
 New user message:
 {text}
 
-Conversation history:
-{history_text}
+Rules:
+- Return continue_current_flow=true
+  only if the user is clearly answering
+  the missing requested information.
 
-Return continue_current_flow=true only if the message appears to answer the missing detail.
+- If the user starts a different request,
+  workflow, or informational question,
+  return continue_current_flow=false.
+
+Examples of continuing workflow:
+- specialty answer
+- choosing a slot
+- confirming an action
+- selecting appointment number
+
+Examples of starting a new request:
+- "אני רוצה לשאול משהו אחר"
+- "יש מוקד בחיפה?"
+- "אני רוצה לבטל תור"
+- "מה שעות הפעילות?"
+
+Return:
+- continue_current_flow
+- reason
 """
 
+
 INTENT_CLASSIFIER_PROMPT = """
-You are an intent classifier for a clinic CRM assistant.
+You are an intent classifier and conversation understanding layer
+for a clinic CRM assistant.
 
-The assistant is administrative only.
-It does not provide medical diagnosis, medical advice, or treatment instructions.
+The assistant handles administrative clinic workflows only.
+It does not provide:
+- medical diagnosis
+- treatment recommendations
+- medical advice
 
-Classify the user message into exactly one intent:
+Your responsibilities:
+1. Detect the user's intent
+2. Understand conversation context
+3. Detect follow-up messages
+4. Resolve incomplete contextual messages
+5. Extract structured entities
+6. Analyze sentiment, urgency, and language
 
-- book_appointment: scheduling, asking for available appointments, doctor availability
-- cancel_appointment: cancelling an appointment
-- referral_status: checking referral status
-- form17_status: checking Form 17 / התחייבות status
-- human_escalation: urgent, sensitive, angry, unsafe, or requires human staff
-- unsupported_topic: clearly unrelated topics that the clinic CRM assistant should not answer, such as weather, news, homework, general knowledge, jokes, or non-clinic questions
-- unknown: unclear clinic-related or ambiguous operational request
--knowledge_request:
-Questions about clinic information, policies, opening hours, procedures, general clinic knowledge.
+==================================================
+INTENT DEFINITIONS
+==================================================
+
+Classify the message into exactly one intent:
+
+- book_appointment
+  Scheduling appointments, doctor availability,
+  requesting appointments, or booking clinic services.
+
+- cancel_appointment
+  Cancelling existing appointments.
+
+- referral_status
+  Checking referral status.
+
+- form17_status
+  Checking Form 17 / התחייבות status.
+
+- knowledge_request
+  Informational clinic questions:
+  clinic locations, branches, urgent care centers,
+  opening hours, clinic services, procedures,
+  policies, and administrative information.
+
+- human_escalation
+  Requests requiring human staff involvement,
+  explicit request for a representative,
+  legal escalation,
+  threats,
+  unsafe situations,
+  or situations the assistant cannot safely handle.
+
+- general_feedback
+  Greetings, thanks, compliments,
+  polite small talk, goodbye messages.
+
+- unsupported_topic
+  Clearly unrelated topics outside clinic administration.
+
+- unknown
+  Ambiguous, incomplete,
+  or unclear clinic-related requests.
+
+==================================================
+CONTEXT AND FOLLOW-UP RULES
+==================================================
+
+Use conversation history ONLY when the new message:
+- is incomplete
+- is short
+- depends on previous context
+
+Typical follow-up examples:
+- "ובלוד?"
+- "ומחר?"
+- "וקרדיולוג?"
+- "אז בבית שמש"
+
+If the message depends on previous context:
+- set is_followup=true
+- generate resolved_user_input
+
+Example:
+
+Previous message:
+"יש מוקד לרפואה דחופה בחיפה?"
+
+New message:
+"ובלוד?"
+
+resolved_user_input:
+"האם יש מוקד לרפואה דחופה בלוד?"
+
+--------------------------------------------------
+
+Critical context reset rule:
+
+If the user message clearly starts
+a new request, workflow,
+or operational action,
+DO NOT reuse previous context.
 
 Examples:
-- "מה מזג האוויר" => unsupported_topic
-- "ספר לי בדיחה" => unsupported_topic
-- "יש משהו" => unknown
-- "תור" => book_appointment
-- "תודה" => general_feedback
+- "אני רוצה לקבוע תור"
+- "אני רוצה לבטל תור"
+- "אפשר רופא ילדים"
+- "צריך הפניה"
+
+Standalone requests are usually NOT followups.
+
+For standalone requests:
+- set is_followup=false
+- resolved_user_input should contain only the current message
+
+==================================================
+ENTITY EXTRACTION
+==================================================
+
+Extract entities whenever possible.
+
+Supported entities:
+- city
+- specialty
+- date
+- time_of_day
+- service
+- appointment_id
+- referral_id
+- form17_id
+
+Rules:
+- If an entity does not appear, return null.
+- Never invent entities.
+- Use only information clearly implied by the message or context.
+
+==================================================
+SENTIMENT AND URGENCY
+==================================================
+
+Return:
+
+user_sentiment:
+- neutral
+- angry
+- happy
+- confused
+- stressed
+
+urgency:
+- low
+- normal
+- high
+
+Important:
+Negative sentiment alone does NOT require human escalation.
+
+==================================================
+LANGUAGE DETECTION
+==================================================
+
+Return:
+- he
+- en
+- mixed
+
+==================================================
+CLASSIFICATION GUIDELINES
+==================================================
+
+The classifier should identify general user intent only.
+
+Do NOT:
+- validate specialties
+- invent workflow steps
+- assume missing information
+- invent entities
+
+Short or incomplete booking-related messages
+may still be classified as book_appointment,
+but with lower confidence.
+
+Do not return high confidence for ambiguous requests.
+
+Use medium confidence for short incomplete requests.
+
+==================================================
+EXAMPLES
+==================================================
+
+"אני רוצה תור"
+=> book_appointment
+
+"קרדיולוג"
+=> book_appointment
+
+"אני רוצה לבטל תור"
+=> cancel_appointment
+
+"מה שעות הפעילות?"
+=> knowledge_request
+
+"יש מוקד לרפואה דחופה בחיפה?"
+=> knowledge_request
+
+"אני רוצה לדבר עם נציג"
+=> human_escalation
+
+"תודה רבה"
+=> general_feedback
+
+"מה מזג האוויר?"
+=> unsupported_topic
+
+"יש משהו"
+=> unknown
+
+"אני רוצה לשאול שאלה נוספת"
+=> unknown
+
+==================================================
+OUTPUT FORMAT
+==================================================
 
 Return a structured result with:
+
+Core classification:
 - intent
-- confidence: number between 0 and 1
-- needs_clarification: true if the request is relevant but missing required information
-- missing_fields: list of missing fields, for example ["specialty"]
-- reason: short explanation
+- confidence
+- needs_clarification
+- missing_fields
+- reason
 
-Booking classification rules:
-- The classifier should identify only the user's general intent, not validate specific specialties.
-- Specialty validation happens later in the workflow, not in the classifier.
-- If the user asks for an appointment, scheduling, availability, doctor/service, or writes a short phrase that likely means they need a clinic appointment, classify as book_appointment.
-- If the message is short or incomplete, use medium confidence, not high confidence.
-- Do not return high confidence for unknown unless the message is clearly unrelated to clinic administration.
+Conversation understanding:
+- topic
+- entities
+- is_followup
+- resolved_user_input
 
-Examples:
-- "צריכה ילדים" => intent=book_appointment, confidence=0.6, needs_clarification=true
-- "צריכה קרדיולוג" => intent=book_appointment, confidence=0.7, needs_clarification=true
-- "אני רוצה תור" => intent=book_appointment, confidence=0.9, needs_clarification=true, missing_fields=["specialty"]
-- "אני רוצה תור לילדים" => intent=book_appointment, confidence=0.95, needs_clarification=false
-- "מה מזג האוויר" => intent=unknown, confidence=0.95
+User analysis:
+- user_sentiment
+- urgency
+- language
 
-For book_appointment:
-- Required missing field is only specialty.
-- Do not mark date or time as missing, because available slots are selected later from the system.
+==================================================
+CONVERSATION HISTORY
+==================================================
 
-Do not classify unclear operational requests as general_feedback.
-Examples:
-- "תודה" => general_feedback
-- "מעולה עזרת לי" => general_feedback
-- "היי" => general_feedback
-- "יש משהו" => unknown
-- "תור" => book_appointment
-- "להיום" => unknown unless there is active workflow context
-
-Conversation history:
 {history_text}
-User message:
+
+==================================================
+USER MESSAGE
+==================================================
+
 {user_input}
 """
 
@@ -211,7 +437,7 @@ Return only one word: confirm, reject, or unclear.
 """
 
 SLOT_RESOLUTION_PROMPT = """
-You resolve appointment slot selection.
+You resolve appointment slot selections in a clinic CRM system.
 
 Available slots:
 {available_slots}
@@ -228,12 +454,44 @@ Return exactly one of:
 - unclear
 
 Rules:
+- Never invent or modify slots.
+- Return only values that exist in Available slots.
+- Return only the final value with no explanation.
+
+Selection rules:
 - If the user says first/הראשון, return the first slot.
 - If the user says second/השני, return the second slot.
-- If the user mentions a day/date/time that matches one slot, return that exact slot.
-- If the user asks for another option/more options/something else, return show_options.
-- Never invent a slot.
-- Return only the final value.
+- If the user says third/השלישי, return the third slot.
+- If the user mentions a day/date/time matching exactly one slot, return that slot.
+- If the user clearly selects one available option indirectly, resolve it.
+
+Alternative option rules:
+- If the user asks for another option, different option,
+  more options, later time, earlier time,
+  tomorrow instead, or similar request,
+  return:
+  show_options
+
+Unclear rules:
+- If multiple slots could match the message, return:
+  unclear
+
+- If the message does not clearly select a slot, return:
+  unclear
+
+Examples:
+
+"הראשון"
+=> first slot
+
+"יום חמישי ב17"
+=> matching slot
+
+"יש משהו אחר?"
+=> show_options
+
+"בערב"
+=> unclear
 """
 
 
@@ -272,30 +530,48 @@ def format_context_guard_prompt(
     )
 
 
-def format_intent_classifier_prompt(*, history_text: str, user_input: str) -> str:
+def format_intent_classifier_prompt(
+    *,
+    history_text: str,
+    user_input: str,
+) -> str:
     return INTENT_CLASSIFIER_PROMPT.format(
         history_text=history_text,
         user_input=user_input,
     )
 
 
-def format_general_feedback_prompt(*, user_input: str) -> str:
-    return GENERAL_FEEDBACK_PROMPT.format(user_input=user_input)
+def format_general_feedback_prompt(
+    *,
+    user_input: str,
+) -> str:
+    return GENERAL_FEEDBACK_PROMPT.format(
+        user_input=user_input,
+    )
 
 
 def format_workflow_response_prompt(**kwargs) -> str:
     return WORKFLOW_RESPONSE_PROMPT.format(**kwargs)
 
 
-def format_classification_evaluator_prompt(*, user_input: str, intent: str) -> str:
+def format_classification_evaluator_prompt(
+    *,
+    user_input: str,
+    intent: str,
+) -> str:
     return CLASSIFICATION_EVALUATOR_PROMPT.format(
         user_input=user_input,
         intent=intent,
     )
 
 
-def format_confirmation_classifier_prompt(*, text: str) -> str:
-    return CONFIRMATION_CLASSIFIER_PROMPT.format(text=text)
+def format_confirmation_classifier_prompt(
+    *,
+    text: str,
+) -> str:
+    return CONFIRMATION_CLASSIFIER_PROMPT.format(
+        text=text,
+    )
 
 
 def format_slot_resolution_prompt(
@@ -309,3 +585,4 @@ def format_slot_resolution_prompt(
         history_text=history_text,
         user_text=user_text,
     )
+

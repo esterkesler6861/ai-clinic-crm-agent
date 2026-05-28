@@ -732,7 +732,10 @@
             available_appointments: state.available_appointments,
 
             tool_result: state.tool_result,
-            answer: state.answer
+            answer: state.answer,
+            conversation_frame: state.conversation_frame,
+resolved_user_input: state.resolved_user_input,
+is_followup: state.is_followup,
         }, null, 2);
 
         const logs = Array.isArray(state.logs) ? state.logs : [];

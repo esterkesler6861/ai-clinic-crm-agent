@@ -60,16 +60,19 @@ workflow_nodes/              # real node implementations (modular)
   context_guard.py
   intent_classification.py
   response_generation.py
-  appointment_booking.py     # currently re-exports legacy nodes_booking.py
+  appointment_booking.py
   appointment_cancellation.py
   statuses.py
   commons.py
-prompt_templates/            # prompt strings + formatter helpers
+
+prompt_templates/
   clinic_crm.py
   customer_support.py
-prompts.py                   # facade / re-exports for prompt_templates
+
+prompts.py                   # backward-compatible facade
 ```
 
+---
 
 ## FastAPI
 
@@ -87,20 +90,20 @@ Main orchestration layer.
 
 The graph is defined in `graph.py` and imports nodes using:
 
-* `from nodes import *`
+```python
+from nodes import *
+```
 
-`nodes.py` is intentionally kept as a **backward-compatible facade** (stable import path) and re-exports the real implementations from the `workflow_nodes/` package.
+`nodes.py` is intentionally kept as a stable facade layer.
 
-### Nodes in the graph
-
-Routing / orchestration nodes:
+### Routing / orchestration nodes
 
 * context_guard_node
 * classify_intent_node
 * evaluate_classification_node
 * generate_response_node
 
-Workflow nodes:
+### Workflow nodes
 
 * book_appointment_node
 * select_appointment_slot_node
@@ -114,7 +117,7 @@ Workflow nodes:
 * general_feedback_node
 * unsupported_topic_node
 * unknown_node
-
+* knowledge_request_node
 
 ---
 
@@ -146,6 +149,12 @@ answer
 
 messages
 logs
+
+current_datetime
+current_date
+current_time
+current_weekday
+timezone
 ```
 
 The system uses waiting-state logic to continue workflows across messages.
@@ -177,6 +186,7 @@ Classifier handles:
 * human escalation
 * general feedback
 * unsupported topics
+* knowledge requests
 * unknown requests
 
 ---
@@ -217,19 +227,51 @@ High-confidence classifications skip evaluator for performance and lower latency
 
 ---
 
+# RAG System
+
+Implemented RAG pipeline using:
+
+* Chroma vector database
+* LangChain retrieval
+* semantic chunking
+* embedding search
+* prompt augmentation
+
+Current capabilities:
+
+* FAQ retrieval
+* urgent care information
+* semantic search
+* retrieval logging
+* context-aware answering
+
+RAG logs include:
+
+* retrieved documents
+* chunk previews
+* context size
+* retrieval statistics
+* answer generation tracing
+
+---
+
 # Prompts
 
-Prompts are now organized under `prompt_templates/`:
+Prompts are organized under `prompt_templates/`:
 
-* `prompt_templates/clinic_crm.py` – clinic CRM prompts + formatter helpers
-* `prompt_templates/customer_support.py` – customer support/router prompts
+* `clinic_crm.py`
+* `customer_support.py`
 
-`prompts.py` remains as a backward-compatible facade to keep imports stable across the codebase.
+Prompts include:
+
+* routing prompts
+* evaluator prompts
+* RAG answering prompts
+* response formatting prompts
 
 ---
 
 # Context Guard
-
 
 Handles:
 
@@ -237,11 +279,13 @@ Handles:
 * explicit flow switching
 * state reset logic
 * override requests
+* ambiguity handling
 
 Examples:
 
 * switching from booking to cancellation
 * asking for human representative mid-flow
+* resetting stuck flows
 
 ---
 
@@ -254,13 +298,13 @@ Explicit override detection exists for:
 * human support
 * escalation requests
 
-These requests should override active workflow states.
+These requests override active workflow states.
 
 ---
 
 # Fake Backend
 
-Current tools.py contains fake in-memory backend:
+Current `tools.py` contains fake in-memory backend:
 
 * appointments
 * referrals
@@ -268,7 +312,8 @@ Current tools.py contains fake in-memory backend:
 * available slots
 
 Purpose:
-Learn AI orchestration before integrating real DB/backend systems.
+
+Learn orchestration before integrating real backend systems.
 
 ---
 
@@ -279,12 +324,14 @@ Deployment stack:
 * GitHub
 * Render
 
-Resolved issues:
+Resolved deployment issues:
 
 * certifi_win32 Linux issue
-* OpenAI timeout issues
+* dependency issues
+* OpenAI timeout handling
 * retry configuration
 * environment variables
+* langchain-chroma deployment issue
 
 ---
 
@@ -314,6 +361,7 @@ Main remaining weak spots:
 * generic help requests
 * vague ambiguous intent
 * context conflict edge cases
+* short follow-up questions
 
 ---
 
@@ -332,6 +380,7 @@ Main remaining weak spots:
 * critic/reviewer agent
 * confidence gating
 * deterministic guardrails
+* workflow orchestration
 
 ## Reliability
 
@@ -339,6 +388,16 @@ Main remaining weak spots:
 * workflow continuation
 * override logic
 * ambiguity handling
+* fallback logic
+
+## RAG Engineering
+
+* chunking strategies
+* embeddings
+* vector search
+* retrieval debugging
+* answer synthesis
+* context injection
 
 ## Engineering
 
@@ -352,26 +411,61 @@ Main remaining weak spots:
 
 # Current TODO
 
-## High Priority
+## High Priority (Current Focus)
 
-1. Improve generic help request handling
-2. Add Decision Summary Layer
-3. Improve override rules
-4. Build routing evaluation dataset
-5. Add LangSmith tracing
+| Priority | Topic | Status | Estimated Time |
+|---|---|---|---|
+| 1 | Stabilize deployment + cleanup | In Progress | 3–6 hours |
+| 2 | Professional README + architecture diagrams | Not Started | 3–5 hours |
+| 3 | Demo conversation scenarios | Partial | 2–4 hours |
+| 4 | Full flow testing (not only routing) | Partial | 5–10 hours |
+| 5 | LangSmith tracing + observability | Not Started | 4–8 hours |
+| 6 | Evaluation datasets + regression testing | Partial | 5–10 hours |
+| 7 | Improve RAG reliability + fallback strategies | In Progress | 4–8 hours |
+| 8 | Human-in-the-loop checkpoints | Not Started | 4–8 hours |
+| 9 | Streaming responses | Not Started | 4–8 hours |
+| 10 | Real persistence/database integration | Not Started | 6–12 hours |
 
 ---
 
-# Future Ideas
+## Medium Priority
 
-* RAG integration
-* real database
-* async workflows
-* memory improvements
-* multi-agent architecture
-* planner/reviewer hierarchy
-* analytics dashboard
-* conversation replay tools
+| Topic | Estimated Time |
+|---|---|
+| Async workflows | 6–10 hours |
+| Memory improvements | 4–8 hours |
+| Conversation replay tools | 4–8 hours |
+| Analytics dashboard | 6–12 hours |
+| Planner/reviewer hierarchy | 8–16 hours |
+
+---
+
+## Advanced / Later Stage
+
+| Topic | Estimated Time |
+|---|---|
+| Multi-agent architecture | 8–20 hours |
+| Subgraphs | 4–8 hours |
+| MCP integration | 10–20 hours |
+| Skills system | 10–20 hours |
+| Parallel execution workflows | 6–10 hours |
+
+---
+
+# Course Alignment Progress
+
+| Course Module | Status |
+|---|---|
+| Introduction to AI Agents | Completed Practically |
+| Prompt Engineering | Strong Practical Usage |
+| RAG / Embeddings / Vector Search | Implemented |
+| RAG in Practice | Partial |
+| MCP | Not Started |
+| Skills | Not Started |
+| Effective Agents / Patterns | Strong Progress |
+| LangChain | Implemented |
+| LangGraph | Strong Progress |
+| LangSmith / Observability | Partial |
 
 ---
 
@@ -397,6 +491,7 @@ Examples:
 * slot selection
 * confirmation handling
 * cancellation flow
+* RAG orchestration
 
 ---
 
@@ -412,9 +507,10 @@ It does NOT replace the classifier.
 
 Project is intentionally developed step-by-step to deeply understand:
 
-* why each architectural layer exists
+* why architectural layers exist
 * how AI systems fail
 * how reliability is improved
 * how orchestration patterns work
+* how production agents are debugged
 
 Focus is on learning professional AI engineering patterns rather than rapidly building features.

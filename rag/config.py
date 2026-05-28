@@ -7,5 +7,5 @@ CHROMA_DIR = BASE_DIR / "rag" / "chroma_db"
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 
-CHUNK_SIZE = 80
-CHUNK_OVERLAP = 10
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 80

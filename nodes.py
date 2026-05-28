@@ -36,6 +36,10 @@ from workflow_nodes.commons import (
     unsupported_topic_node,
 )
 from workflow_nodes.response_generation import generate_response_node
+from workflow_nodes.semantic_resolver import semantic_resolver_node
+
+from workflow_nodes.conversation_frame import conversation_frame_node
+from workflow_nodes.message_history import update_message_history_node
 
 __all__ = [
     # Shared helpers
@@ -64,7 +68,10 @@ __all__ = [
     "unknown_node",
     # Response
     "generate_response_node",
-    #knowledge        
+    # Knowledge
     "knowledge_request_node",
+    "semantic_resolver_node",
+    "conversation_frame_node",
+    # Message history
+    "update_message_history_node",
 ]
-

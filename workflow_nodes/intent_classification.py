@@ -12,10 +12,10 @@ from utils import (
     detect_confirmation,
     detect_explicit_new_flow,
     extract_first_number,
+    build_classifier_history
 )
 from workflow_nodes.logging_utils import with_log
 
-# Keep legacy logger name used by `nodes.py` (module name `nodes`).
 logger = logging.getLogger("nodes")
 
 
@@ -30,64 +30,60 @@ def classify_intent_node(state: ClinicCRMState):
         state,
         f"NODE classify_intent_node | text={state.get('user_input')}",
     )
+
     if state.get("tool_result") == "flow_cancelled":
         return {
-        **state,
-        "intent": "general_feedback",
-        "logs": add_log(state, "ROUTE | flow_cancelled"),
-     }
+            **state,
+            "intent": "general_feedback",
+            "logs": add_log(state, "ROUTE | flow_cancelled"),
+        }
+
+    if state.get("tool_result") == "off_topic_during_flow":
+        return {
+            **state,
+            "intent": "unknown",
+            "logs": add_log(state, "ROUTE | off_topic_during_flow"),
+        }
+
     explicit_flow = detect_explicit_new_flow(state["user_input"])
-    text = state["user_input"].lower()
+
+    text = (
+        state.get("resolved_user_input")
+        or state["user_input"]
+    ).lower()
+
     number = extract_first_number(text)
 
-    if (
-    state.get("last_completed_flow") == "form17_status"
-    and number
-    ):
+    if state.get("last_completed_flow") == "form17_status" and number:
         return {
-        **state,
-        "intent": "form17_status",
-        "decision_summary": (
-            "Deterministic continuation after previous Form 17 flow."
-        ),
-        "logs": add_log(
-            state,
-            "LAST FLOW CONTINUATION | form17_status",
-        ),
-    }
-    if (
-    state.get("last_completed_flow") == "referral_status"
+            **state,
+            "intent": "form17_status",
+            "decision_summary": "Deterministic continuation after previous Form 17 flow.",
+            "logs": add_log(state, "LAST FLOW CONTINUATION | form17_status"),
+        }
 
-    and number
-):
+    if state.get("last_completed_flow") == "referral_status" and number:
         return {
-        **state,
-        "intent": "referral_status",
-        "decision_summary": (
-            "Deterministic continuation after previous referral flow."
-        ),
-        "logs": add_log(
-            state,
-            "LAST FLOW CONTINUATION | referral_status",
-        ),
-    }
-
+            **state,
+            "intent": "referral_status",
+            "decision_summary": "Deterministic continuation after previous referral flow.",
+            "logs": add_log(state, "LAST FLOW CONTINUATION | referral_status"),
+        }
 
     if explicit_flow == "human_escalation":
         return {
-        **state,
-        "intent": "human_escalation",
-        "active_flow": None,
-        "decision_summary": "Deterministic override detected human escalation request.",
-        "logs": add_log(state, "OVERRIDE ROUTE | human_escalation"),
+            **state,
+            "intent": "human_escalation",
+            "active_flow": None,
+            "decision_summary": "Deterministic override detected human escalation request.",
+            "logs": add_log(state, "OVERRIDE ROUTE | human_escalation"),
         }
+
     if state.get("waiting_for_appointment_selection", False):
         return {
             **state,
             "intent": "select_appointment_to_cancel",
-            "logs": add_log(
-                state, "WAITING STATE ROUTE | select_appointment_to_cancel"
-            ),
+            "logs": add_log(state, "WAITING STATE ROUTE | select_appointment_to_cancel"),
         }
 
     if state.get("waiting_for_confirmation", False):
@@ -152,38 +148,80 @@ def classify_intent_node(state: ClinicCRMState):
             "intent": "form17_status",
             "logs": add_log(state, "WAITING STATE ROUTE | form17_status"),
         }
-    history_text = build_history_text(state)
+
+    history_text = build_classifier_history(state)
+
     result = intent_model.invoke(
         format_intent_classifier_prompt(
             history_text=history_text,
-            user_input=state["user_input"],
+            user_input=(
+                state.get("resolved_user_input")
+                or state["user_input"]
+            ),
         )
     )
 
+    entities = result.entities.model_dump()
+
     return {
         **state,
+
         "intent": result.intent,
-        "last_completed_flow": (
-         state.get("last_completed_flow")
-        if result.intent == "unknown"
-        else None
+        "topic": result.topic,
+        "entities": entities,
+
+        "resolved_user_input": (
+            result.resolved_user_input
+            or state["user_input"]
         ),
-        "active_flow": result.intent if result.intent != "unknown" else None,
+
+        "is_followup": result.is_followup,
+        "user_sentiment": result.user_sentiment,
+        "urgency": result.urgency,
+        "language": result.language,
+
+        "last_completed_flow": (
+            state.get("last_completed_flow")
+            if result.intent == "unknown"
+            else None
+        ),
+
+        "active_flow": (
+            result.intent
+            if result.intent != "unknown"
+            else None
+        ),
+
         "classification_confidence": result.confidence,
+
         "decision_summary": (
-    f"Classifier selected intent '{result.intent}' "
-    f"with confidence {result.confidence}. "
-    f"Reason: {result.reason}"
-),
+            f"Classifier selected intent '{result.intent}' "
+            f"with confidence {result.confidence}. "
+            f"Reason: {result.reason}"
+        ),
+
         "logs": add_log(
             state,
-
-            f"INTENT CLASSIFIED | intent={result.intent} | confidence={result.confidence} | needs_clarification={result.needs_clarification} | missing_fields={result.missing_fields} | reason={result.reason}",
+            f"INTENT CLASSIFIED | "
+            f"intent={result.intent} | "
+            f"confidence={result.confidence} | "
+            f"needs_clarification={result.needs_clarification} | "
+            f"missing_fields={result.missing_fields} | "
+            f"followup={result.is_followup} | "
+            f"entities={entities} | "
+            f"sentiment={result.user_sentiment} | "
+            f"urgency={result.urgency} | "
+            f"language={result.language} | "
+            f"reason={result.reason}",
         ),
     }
 
 
 def route_after_classification(state: ClinicCRMState):
+    if state.get("tool_result") == "off_topic_during_flow":
+        logger.info("ROUTE AFTER CLASSIFICATION | off_topic_during_flow -> unknown")
+        return "unknown"
+
     intent = state.get("intent") or "unknown"
     confidence = state.get("classification_confidence", 1)
     text = (state.get("user_input") or "").lower()
@@ -204,6 +242,8 @@ def route_after_classification(state: ClinicCRMState):
         "מענה אנושי",
         "רופא",
         "מרפאה",
+        "מוקד",
+        "רפואה דחופה",
     ]
 
     suspicious = False
@@ -236,7 +276,6 @@ def route_after_classification(state: ClinicCRMState):
 
 
 def evaluate_classification_node(state: ClinicCRMState):
-
     state = with_log(
         state,
         f"NODE evaluate_classification_node | intent={state.get('intent')}",
@@ -251,33 +290,35 @@ def evaluate_classification_node(state: ClinicCRMState):
 
     state = with_log(
         state,
-        f"EVALUATION RESULT | valid={result.decision_valid} | suggested={result.suggested_intent} | reason={result.evaluation_reason}",
+        f"EVALUATION RESULT | valid={result.decision_valid} | "
+        f"suggested={result.suggested_intent} | "
+        f"reason={result.evaluation_reason}",
     )
 
     if result.decision_valid:
         previous_summary = state.get("decision_summary") or ""
 
         return {
-        **state,
-        "decision_summary": (
-            previous_summary
-            + f" Evaluator approved the classification. "
-              f"Reason: {result.evaluation_reason}"
-        ),
-    }
+            **state,
+            "decision_summary": (
+                previous_summary
+                + " Evaluator approved the classification. "
+                + f"Reason: {result.evaluation_reason}"
+            ),
+        }
 
     if result.suggested_intent:
+        previous_summary = state.get("decision_summary") or ""
 
-      previous_summary = state.get("decision_summary") or ""
-      return {
+        return {
             **state,
             "intent": result.suggested_intent,
             "decision_summary": (
-            previous_summary
-            + f" Evaluator rejected the original classification "
-              f"and changed intent to '{result.suggested_intent}'. "
-              f"Reason: {result.evaluation_reason}"
-        ),
+                previous_summary
+                + f" Evaluator rejected the original classification "
+                  f"and changed intent to '{result.suggested_intent}'. "
+                  f"Reason: {result.evaluation_reason}"
+            ),
             "logs": add_log(
                 state,
                 f"EVALUATOR CHANGED INTENT | new_intent={result.suggested_intent}",
